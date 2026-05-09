@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>GeoCircle Studio - 圓交點切割版 (Precision Cutting)</title>
+<style>
+body { font-family: 'PingFang TC', sans-serif; background: linear-gradient(180deg, #f9f7f2 0%, #FFFBF0 100%); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+#welcome-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f9f7f2, #FFFBF0); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: #444; text-align: center; }
+.menu-btns { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+.menu-card { background: #FFFBF0; color: #444; padding: 25px; border-radius: 20px; width: 180px; cursor: pointer; transition: transform 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #ddd; }
+.menu-card:hover { transform: translateY(-10px); background: #fcfcfc; border-color: #bbb; }
+.app-container { display: none; padding: 20px; width: 95%; max-width: 1100px; background: #FFFBF0; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); border: 1px solid #eee; flex-wrap: wrap; gap: 20px; color: #333; }
+.canvas-area { flex: 2; text-align: center; }
+.side-panel { flex: 1; min-width: 300px; padding: 15px; border-left: 1px solid #eee; display: flex; flex-direction: column; }
+canvas { background: #FFFBF0; border: 1px solid #ddd; border-radius: 10px; cursor: crosshair; }
+.formula-box { font-size: 1.1rem; margin-bottom: 15px; padding: 15px; background: #fdfcf8; border: 1px solid #e0dbca; border-radius: 10px; text-align: center; color: #555; }
+input[type="number"] { width: 45px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+input[type="color"] { width: 100%; height: 40px; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; background: #FFFBF0; }
+.btn { padding: 12px; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 10px; transition: 0.2s; }
+
+.add-btn { background: #3b429f; color: white; border: 1px solid #2a2f7a; }
+.add-btn:hover { background: #4a52c0; }
+.trim-btn { background: #f0f4ff; color: #3b429f; border: 1px solid #3b429f; }
+.trim-btn.active { background: #ff4d4f; color: white; border-color: #ff4d4f; }
+.undo-btn { background: #5059c9; color: white; display: none; }
+
+.back-btn { background: #FFFBF0; color: #888; border: 1px solid #eee; }
+.circle-list-container { flex-grow: 1; overflow-y: auto; max-height: 250px; }
+.circle-item { display: flex; flex-direction: column; padding: 10px; border-bottom: 1px solid #f0f0f0; font-size: 0.8rem; color: #666; }
+.circle-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.del-x { color: #ccc; font-weight: bold; cursor: pointer; border: none; background: none; }
+.del-x:hover { color: #ff4d4f; }
+
+.inequality-display { margin-top: 10px; padding: 15px; background: #fdfcf8; font-family: 'Times New Roman', serif; font-size: 1rem; min-height: 1.2rem; white-space: pre-wrap; color: #333; border-radius: 5px; text-align: left; line-height: 1.8; }
+.symbol-set { color: #3b429f; font-weight: bold; margin: 0 5px; }
+
+.tutorial-content { display: none; background: #fff; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-bottom: 10px; font-size: 0.9rem; line-height: 1.6; }
+.nav-btns { display: flex; gap: 10px; margin-top: 10px; }
+.nav-btn { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 10px; background: white; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="welcome-screen">
+<h1 id="main-title" style="font-size: 3rem; margin-bottom: 30px; font-weight: 300; letter-spacing: 2px;">GeoCircle Studio</h1>
+<div id="main-menu" class="menu-btns">
+<div class="menu-card" onclick="showTutorialSubmenu()"><div class="icon" style="font-size:3rem">💡</div><h2>教學 (Tutorial)</h2></div>
+<div class="menu-card" onclick="startApp('exercise')"><div class="icon" style="font-size:3rem">✏️</div><h2>挑戰 (Exercise)</h2></div>
+<div class="menu-card" onclick="startApp('free')"><div class="icon" style="font-size:3rem">🎨</div><h2>自由創作（DIY）</h2></div>
+</div>
+<div id="tutorial-submenu" class="menu-btns" style="display: none;">
+<div class="menu-card" onclick="startApp('tutorial_curve')"><div class="icon" style="font-size:3rem">📏</div><h2>Circle 軌跡</h2></div>
+<div class="menu-card" onclick="startApp('tutorial_trim')"><div class="icon" style="font-size:3rem">✂️</div><h2>Trim 切割</h2></div>
+<div class="menu-card" onclick="startApp('tutorial_color')"><div class="icon" style="font-size:3rem">🖌️</div><h2>Shade 填色</h2></div>
+<div class="menu-card" style="width: 100%; padding: 10px;" onclick="hideTutorialSubmenu()">返回主選單</div>
+</div>
+</div>
+
+<div id="app" class="app-container">
+<div class="canvas-area">
+<h2 id="modeTitle" style="font-weight: 400; color: #555;">繪圖模式 (Drawing Mode)</h2>
+<canvas id="canvas" width="600" height="600"></canvas>
+
+<div id="areaInequality" class="inequality-display" style="border-left: 5px solid #3b429f;">區域條件聯立顯示區...</div>
+<div id="lineInequality" class="inequality-display" style="border-left: 5px solid #4a5c4a; background: #f4f9f4;">弧段條件聯立顯示區...</div>
+</div>
+<div class="side-panel">
+<button class="back-btn btn" onclick="goHome()">⬅ 回到主選單 (Back to Menu)</button>
+
+<div id="tut-exercise-box" class="tutorial-content"><h3>✏️ 挑戰 (Exercise)</h3><p>請參考黃色虛線導引還原圖形。</p></div>
+
+<div id="tut-curve-box" class="tutorial-content">
+<h3>📏 Circle 軌跡教學</h3>
+<p><b>圓的標準式：</b><br>(x - h)² + (y - k)² = r²</p>
+<p>1. 在輸入框設定中心座標 (h, k) 與半徑 r。<br>2. 點擊「生成軌跡」按鈕即可新增圓形。<br>3. 點擊右側列表的「❌」可刪除該圓。</p>
+</div>
+
+<div id="tut-trim-box" class="tutorial-content">
+<h3>✂️ Trim 切割教學</h3>
+<div id="trim-step-text" style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:10px; min-height: 80px; color:#555;"></div>
+<div class="nav-btns"><button class="nav-btn" onclick="prevStep('trim')">上一步</button><button class="nav-btn" onclick="nextStep('trim')">下一步</button></div>
+</div>
+
+<div id="tut-color-box" class="tutorial-content">
+<h3>🎨 Shade 填色教學</h3>
+<div id="color-step-text" style="background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:10px; min-height: 80px; color:#555;"></div>
+<div class="nav-btns"><button class="nav-btn" onclick="prevStep('color')">上一步</button><button class="nav-btn" onclick="nextStep('color')">下一步</button></div>
+</div>
+
+<button id="trimModeBtn" class="trim-btn btn" onclick="toggleTrimMode()">✂️ 進入切割模式 (Cut Mode OFF)</button>
+<button id="undoBtn" class="undo-btn btn" onclick="undoTrim()">↩️ 撤銷切割 (Undo)</button>
+<input type="color" id="fillColor" value="#3b429f" style="margin-bottom: 15px;">
+<div id="input-section">
+<div class="formula-box">(x - <input type="number" id="h" value="0">)² + (y - <input type="number" id="k" value="0">)² = <input type="number" id="r" value="4">²</div>
+<button class="add-btn btn" onclick="addCircle()">＋ 生成軌跡 (Add Circle)</button>
+</div>
+<button class="btn" style="background:#FFFBF0; color:#bbb; border: 1px solid #eee;" onclick="clearAllFills()">清除所有填色 (Clear All)</button>
+<div class="circle-list-container"><ul id="circleList" style="padding:0; list-style:none;"></ul></div>
+</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+const bCanvas = document.createElement('canvas'); bCanvas.width = 600; bCanvas.height = 600; const bctx = bCanvas.getContext('2d');
+const fLayer = document.createElement('canvas'); fLayer.width = 600; fLayer.height = 600; const fctx = fLayer.getContext('2d');
+const scale = 30; let circles = [], trimHistory = [], currentMode = 'free', isTrimMode = false;
+
+const tutorialSteps = {
+trim: [
+"【步驟 1：生成圓】在下方輸入座標與半徑，並生成「至少兩個有重疊」的圓形，交點才能作為切割邊界。",
+"【步驟 2：開啟模式】點擊「進入切割模式」按鈕。當按鈕背景變為紅色，表示精準切割功能已啟動。",
+"【步驟 3：點擊弧段】將滑鼠靠近想要刪除的弧線並點擊。程式會自動計算交點，僅刪除該交點間的線段。",
+"【步驟 4：確認結果】被刪除的弧段會顯示其數學限制式。若切錯，可點擊「撤銷切割 (Undo)」恢復。"
+],
+color: [
+"【步驟 1：生成圓】在畫面上生成圓形軌跡。若要填充特定形狀，請確保多個圓形交織成封閉空間。",
+"【步驟 2：選取顏色】點擊色塊選取器挑選顏色。建議選擇較明亮的顏色，填充效果更清晰。",
+"【步驟 3：執行填色】在「封閉區域」內點擊滑鼠。顏色會擴散至邊界，同時顯示該區域的不等式組聯立形式。",
+"【步驟 4：清除與重作】點擊「清除所有填色」可恢復乾淨畫布。若要換色，挑選新色後再次點擊該區域即可。"
+]
+};
+let currentSteps = { trim: 0, color: 0 };
+
+const dogTargetData = [{h:0,k:3,r:3.5},{h:-2.5,k:5,r:1.5},{h:2.5,k:5,r:1.5},{h:0,k:-2,r:4.5},{h:-2,k:-6,r:1.5},{h:2,k:-6,r:1.5},{h:3.5,k:0,r:2},{h:4.5,k:1,r:1.2},{h:-1,k:3.5,r:0.4},{h:1,k:3.5,r:0.4},{h:0,k:2.5,r:0.5}];
+
+canvas.addEventListener('mousedown', (e) => isTrimMode ? handleTrim(e) : handleBucketFill(e));
+
+function showTutorialSubmenu() { document.getElementById('main-menu').style.display = 'none'; document.getElementById('tutorial-submenu').style.display = 'flex'; }
+function hideTutorialSubmenu() { document.getElementById('main-menu').style.display = 'flex'; document.getElementById('tutorial-submenu').style.display = 'none'; }
+
+function nextStep(t){ if(currentSteps[t] < tutorialSteps[t].length - 1){ currentSteps[t]++; document.getElementById(t+'-step-text').innerText=tutorialSteps[t][currentSteps[t]]; } }
+function prevStep(t){ if(currentSteps[t] > 0){ currentSteps[t]--; document.getElementById(t+'-step-text').innerText=tutorialSteps[t][currentSteps[t]]; } }
+
+function toggleTrimMode() {
+isTrimMode = !isTrimMode;
+document.getElementById('trimModeBtn').classList.toggle('active', isTrimMode);
+document.getElementById('trimModeBtn').innerText = isTrimMode ? "✂️ 切割模式中 (ON)" : "✂️ 進入切割模式 (OFF)";
+document.getElementById('undoBtn').style.display = isTrimMode ? "block" : "none";
+}
+
+function resetInequalityDisplay() {
+document.getElementById('areaInequality').innerText = "區域條件聯立顯示區...";
+document.getElementById('lineInequality').innerText = "弧段條件聯立顯示區...";
+}
+
+function startApp(m) {
+currentMode = m; isTrimMode = false; trimHistory = []; circles = [];
+document.getElementById('welcome-screen').style.display = 'none';
+document.getElementById('app').style.display = 'flex';
+document.querySelectorAll('.tutorial-content').forEach(el => el.style.display = 'none');
+
+resetInequalityDisplay();
+
+if(m.startsWith('tutorial_')) {
+const type = m.split('_')[1];
+const box = document.getElementById('tut-' + type + '-box');
+if(box) {
+box.style.display = 'block';
+if(tutorialSteps[type]) {
+currentSteps[type] = 0;
+document.getElementById(type + '-step-text').innerText = tutorialSteps[type][0];
+}
+}
+} else if(m==='exercise') {
+document.getElementById('tut-exercise-box').style.display='block';
+}
+fctx.clearRect(0,0,600,600); render();
+}
+
+function goHome() {
+document.getElementById('welcome-screen').style.display = 'flex';
+document.getElementById('app').style.display = 'none';
+resetInequalityDisplay();
+}
+
+function addCircle() { const h = parseFloat(document.getElementById('h').value)||0, k = parseFloat(document.getElementById('k').value)||0, r = parseFloat(document.getElementById('r').value)||0; if(r>0){ circles.push({ id: Date.now(), h, k, r, hiddenArcs: [] }); render(); } }
+
+function getCircleIntersections(c1, c2) {
+let dx = c2.h - c1.h, dy = c2.k - c1.k, d = Math.sqrt(dx*dx + dy*dy);
+if (d > c1.r + c2.r || d < Math.abs(c1.r - c2.r) || d === 0) return [];
+let a = (c1.r*c1.r - c2.r*c2.r + d*d) / (2*d), hVal = Math.sqrt(Math.max(0, c1.r*c1.r - a*a));
+let x2 = c1.h + a*dx/d, y2 = c1.k + a*dy/d;
+return [{ x: x2 + hVal*dy/d, y: y2 - hVal*dx/d }, { x: x2 - hVal*dy/d, y: y2 + hVal*dx/d }];
+}
+
+function handleTrim(e) {
+const rect = canvas.getBoundingClientRect();
+const mx = (e.clientX - rect.left - 300) / scale, my = (300 - (e.clientY - rect.top)) / scale;
+let target = null, minDist = 0.8;
+circles.forEach(c => {
+const d = Math.abs(Math.sqrt((mx-c.h)**2 + (my-c.k)**2) - c.r);
+if(d < minDist) { minDist = d; target = c; }
+});
+if(!target) return;
+
+let clickA = Math.atan2(my - target.k, mx - target.h);
+while(clickA < 0) clickA += 2 * Math.PI;
+
+const epsilon = 1e-6;
+let pts = [0, 2 * Math.PI];
+circles.forEach(other => {
+if(other === target) return;
+getCircleIntersections(target, other).forEach(p => {
+let a = Math.atan2(p.y - target.k, p.x - target.h);
+while(a < 0) a += 2 * Math.PI;
+pts.push(a);
+});
+});
+pts.sort((a, b) => a - b);
+let uniquePts = [];
+for (let i = 0; i < pts.length; i++) { if (i === 0 || pts[i] - uniquePts[uniquePts.length - 1] > epsilon) uniquePts.push(pts[i]); }
+
+for(let i=0; i < uniquePts.length - 1; i++) {
+if(clickA >= uniquePts[i] - epsilon && clickA <= uniquePts[i+1] + epsilon) {
+saveTrimSnapshot();
+target.hiddenArcs.push({ start: uniquePts[i], end: uniquePts[i+1] });
+
+const h_str = target.h === 0 ? "x" : (target.h > 0 ? `(x - ${target.h})` : `(x + ${Math.abs(target.h)})`);
+const k_str = target.k === 0 ? "y" : (target.k > 0 ? `(y - ${target.k})` : `(y + ${Math.abs(target.k)})`);
+
+const midAngle = (uniquePts[i] + uniquePts[i+1]) / 2;
+const testX = target.h + target.r * Math.cos(midAngle);
+const testY = target.k + target.r * Math.sin(midAngle);
+
+let conditions = [`${h_str}² + ${k_str}² = ${target.r}²`];
+circles.forEach(other => {
+if(other === target) return;
+const dSq = (testX - other.h)**2 + (testY - other.k)**2;
+const oh = other.h === 0 ? "x" : (other.h > 0 ? `(x - ${other.h})` : `(x + ${Math.abs(other.h)})`);
+const ok = other.k === 0 ? "y" : (other.k > 0 ? `(y - ${other.k})` : `(y + ${Math.abs(other.k)})`);
+const sym = dSq <= (other.r**2 + 0.01) ? "≤" : ">";
+conditions.push(`${oh}² + ${ok}² ${sym} ${other.r}²`);
+});
+
+document.getElementById('lineInequality').innerHTML = "弧段條件：" + conditions.map(c => `{ ${c} }`).join(' <span class="symbol-set">∩</span> ');
+
+target.hiddenArcs.sort((a,b)=>a.start-b.start);
+let merged = [];
+if(target.hiddenArcs.length){
+let curr = {...target.hiddenArcs[0]};
+for(let j=1; j<target.hiddenArcs.length; j++){
+if(target.hiddenArcs[j].start <= curr.end + epsilon) curr.end = Math.max(curr.end, target.hiddenArcs[j].end);
+else { merged.push(curr); curr = {...target.hiddenArcs[j]}; }
+}
+merged.push(curr);
+}
+target.hiddenArcs = merged;
+render(); return;
+}
+}
+}
+
+function saveTrimSnapshot() { trimHistory.push(JSON.parse(JSON.stringify(circles))); if(trimHistory.length>30) trimHistory.shift(); }
+
+function undoTrim() {
+if(trimHistory.length){
+circles = trimHistory.pop();
+// 核心修正處：明確調用 resetInequalityDisplay 的部分或直接清空 lineInequality
+document.getElementById('lineInequality').innerText = "弧段條件聯立顯示區...";
+render();
+}
+}
+
+function render() {
+ctx.clearRect(0,0,600,600); drawGrid();
+if(currentMode==='exercise') dogTargetData.forEach(p => { ctx.beginPath(); ctx.arc(300+p.h*scale, 300-p.k*scale, p.r*scale, 0, Math.PI*2); ctx.strokeStyle="#FFD167"; ctx.setLineDash([5,5]); ctx.stroke(); ctx.setLineDash([]); });
+bctx.clearRect(0,0,600,600);
+circles.forEach(c => {
+bctx.strokeStyle="#444"; bctx.lineWidth=2.5;
+let current = 0;
+const sortedArcs = [...c.hiddenArcs].sort((a,b)=>a.start-b.start);
+sortedArcs.forEach(arc => {
+if(arc.start > current + 0.001) { bctx.beginPath(); bctx.arc(300+c.h*scale, 300-c.k*scale, c.r*scale, -current, -arc.start, true); bctx.stroke(); }
+current = arc.end;
+});
+if(current < 2*Math.PI - 0.001) { bctx.beginPath(); bctx.arc(300+c.h*scale, 300-c.k*scale, c.r*scale, -current, -Math.PI*2, true); bctx.stroke(); }
+});
+ctx.drawImage(fLayer,0,0); ctx.drawImage(bCanvas,0,0); updateUI();
+}
+
+function drawGrid() {
+ctx.strokeStyle="rgba(0,0,0,0.05)"; ctx.lineWidth = 1;
+for(let i=0;i<=600;i+=scale){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,600);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(600,i);ctx.stroke(); }
+ctx.strokeStyle="#999"; ctx.lineWidth = 1.5; ctx.beginPath();ctx.moveTo(0,300);ctx.lineTo(600,300);ctx.stroke(); ctx.beginPath();ctx.moveTo(300,0);ctx.lineTo(300,600);ctx.stroke();
+ctx.fillStyle = "#888"; ctx.font = "10px Arial";
+for(let n=-10; n<=10; n++) { if(n===0) continue; ctx.fillText(n, 300+n*scale-5, 315); ctx.fillText(n, 285, 300-n*scale+5); }
+}
+
+function handleBucketFill(e) {
+const rect=canvas.getBoundingClientRect(), x=Math.round(e.clientX-rect.left), y=Math.round(e.clientY-rect.top);
+const mx = (x - 300) / scale, my = (300 - y) / scale;
+
+if(circles.length > 0) {
+let ineqHTML = "區域條件：";
+circles.forEach((c, index) => {
+const distSq = (mx-c.h)**2 + (my-c.k)**2;
+const h_part = c.h === 0 ? "x" : (c.h > 0 ? `(x - ${c.h})` : `(x + ${Math.abs(c.h)})`);
+const k_part = c.k === 0 ? "y" : (c.k > 0 ? `(y - ${c.k})` : `(y + ${Math.abs(c.k)})`);
+const symbol = distSq <= (c.r**2 + 0.01) ? "≤" : ">";
+ineqHTML += `{ ${h_part}² + ${k_part}² ${symbol} ${c.r}² }`;
+if(index < circles.length - 1) ineqHTML += ` <span class="symbol-set">∩</span> `;
+});
+document.getElementById('areaInequality').innerHTML = ineqHTML;
+}
+
+if(fctx.getImageData(x,y,1,1).data[3]>0) {
+floodFill(x,y,[0,0,0,0],true);
+document.getElementById('areaInequality').innerText = "區域條件聯立顯示區...";
+}
+else { const h=document.getElementById('fillColor').value, rgb=[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16),180]; floodFill(x,y,rgb,false); }
+render();
+}
+
+function floodFill(x,y,color,isE) {
+const bD=bctx.getImageData(0,0,600,600), fD=fctx.getImageData(0,0,600,600), stack=[[x,y]], vis=new Uint8Array(360000), pks=[]; let leak=false;
+while(stack.length){
+const [cx,cy]=stack.pop(); const i=cy*600+cx;
+if(cx<=0||cx>=599||cy<=0||cy>=599){ leak=true; if(!isE) break; }
+if(cx<0||cx>=600||cy<0||cy>=600||vis[i]||bD.data[i*4+3]>50) continue;
+vis[i]=1; pks.push(i); stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+}
+if(leak && !isE) return;
+pks.forEach(p=>{ fD.data[p*4]=color[0];fD.data[p*4+1]=color[1];fD.data[p*4+2]=color[2];fD.data[p*4+3]=color[3]; });
+fctx.putImageData(fD,0,0);
+}
+
+function updateUI() {
+const l=document.getElementById('circleList'); l.innerHTML='';
+circles.forEach(c=>{
+const li=document.createElement('li'); li.className='circle-item';
+const h_d = c.h === 0 ? "x" : (c.h > 0 ? `(x - ${c.h})` : `(x + ${Math.abs(c.h)})`);
+const k_d = c.k === 0 ? "y" : (c.k > 0 ? `(y - ${c.k})` : `(y + ${Math.abs(c.k)})`);
+li.innerHTML=`<div class="circle-header"><span>${h_d}² + ${k_d}² = ${c.r}²</span><button class="del-x" onclick="deleteCircle(${c.id})">❌</button></div>`;
+l.appendChild(li);
+});
+}
+function deleteCircle(id){ circles=circles.filter(c=>c.id!==id); render(); }
+
+function clearAllFills(){
+fctx.clearRect(0,0,600,600);
+resetInequalityDisplay();
+render();
+}
+</script>
+</body>
+</html>
